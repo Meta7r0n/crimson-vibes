@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Crimson Skies: Ring Run</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #330000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; -webkit-user-select: none; touch-action: none; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        #hud-top {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            color: #ffcc00;
+            text-shadow: 2px 2px 0 #000;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        #center-info {
+            text-align: center;
+            width: 100%;
+            position: absolute;
+            top: 20px;
+            left: 0;
+        }
+
+        #mission-text {
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid #ffcc00;
+            padding: 10px 20px;
+            border-radius: 8px;
+            display: inline-block;
+            color: white;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+        }
+
+        #ring-counter {
+            font-size: 1.5rem;
+            color: #00ff00;
+            margin-top: 5px;
+            text-shadow: 0 0 5px #003300;
+        }
+
+        #landing-feedback {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-top: 20px;
+            text-shadow: 0 0 10px #000;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        #streak-feedback {
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: #ffcc00;
+            text-shadow: 0 0 15px #ff6600;
+            position: absolute;
+            top: 150px;
+            width: 100%;
+            text-align: center;
+            opacity: 0;
+            transition: transform 0.1s, opacity 0.2s;
+            transform: scale(0.5);
+        }
+
+        .hud-stats {
+            text-align: right;
+            font-family: monospace;
+            font-size: 20px;
+            min-width: 120px;
+        }
+        
+        #score-val {
+            color: #fff;
+            font-size: 24px;
+            display: block;
+            margin-bottom: 5px;
+        }
+        #lvl-val { color: #aaa; font-size: 14px; }
+
+        /* Mobile Controls */
+        #controls-layer {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            height: 150px;
+            z-index: 20;
+            pointer-events: none;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 40px;
+            box-sizing: border-box;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+        }
+
+        #stick-area {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 204, 0, 0.3);
+            border-radius: 50%;
+            position: relative;
+            touch-action: none;
+        }
+
+        #stick-knob {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 204, 0, 0.8);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 0 10px #ff9900;
+            transition: transform 0.1s ease-out; 
+        }
+        #stick-knob.active { transition: none; }
+
+        #throttle-container {
+            width: 60px;
+            height: 140px;
+            background: rgba(0,0,0,0.4);
+            border: 2px solid #555;
+            border-radius: 10px;
+            position: relative;
+            margin-right: 20px;
+            touch-action: none;
+        }
+        
+        #throttle-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 0%;
+            background: linear-gradient(to top, #33cc33, #ffcc00, #ff3300);
+            border-radius: 8px;
+            transition: height 0.05s linear;
+        }
+
+        #throttle-handle {
+            width: 100%;
+            height: 20px;
+            background: #fff;
+            border: 2px solid #000;
+            position: absolute;
+            bottom: 0;
+            left: -2px;
+            width: 64px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .key-hint {
+            font-size: 10px;
+            color: #aaa;
+            margin-top: 5px;
+            display: none;
+        }
+        @media (min-width: 1024px) { .key-hint { display: block; } }
+
+        /* End Screen */
+        #game-over {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 4px solid #ffcc00;
+            padding: 40px;
+            color: #ffcc00;
+            text-align: center;
+            z-index: 100;
+            border-radius: 15px;
+            width: 80%;
+            max-width: 500px;
+        }
+        #game-over h1 { margin-top: 0; text-transform: uppercase; font-size: 2.5rem; color: #ff3300; text-shadow: 0 0 10px #ffcc00; }
+        #end-rating { font-size: 1.8rem; color: #fff; margin: 10px 0; font-weight: bold; }
+        #end-score { font-size: 1.5rem; color: #00ff00; margin-bottom: 10px; font-family: monospace;}
+        
+        button.restart-btn {
+            background: #ffcc00;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        button.restart-btn:hover { background: #fff; }
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div id="hud-top">
+            <div>
+                ALT: <span id="alt-val">0</span> ft<br>
+                SPD: <span id="spd-val">0</span> kts
+            </div>
+            <div class="hud-stats">
+                <span id="score-val">SCORE: 0</span>
+                <span id="lvl-val">LEVEL 1</span>
+                PWR: <span id="throt-val">0</span>%
+            </div>
+        </div>
+        <div id="center-info">
+            <div id="mission-text">Ready for Takeoff</div>
+            <div id="ring-counter">RINGS: 0/10</div>
+            <div id="landing-feedback"></div>
+        </div>
+        <div id="streak-feedback">2x COMBO!</div>
+    </div>
+
+    <div id="controls-layer">
+        <div class="control-group">
+            <div id="stick-area"><div id="stick-knob"></div></div>
+            <div class="key-hint">Arrow Keys / Drag</div>
+        </div>
+        <div class="control-group">
+            <div id="throttle-container">
+                <div id="throttle-fill"></div>
+                <div id="throttle-handle"></div>
+            </div>
+            <div class="key-hint">W / S</div>
+        </div>
+    </div>
+
+    <div id="game-over">
+        <h1 id="end-title">Mission Complete</h1>
+        <div id="end-rating"></div>
+        <div id="end-score"></div>
+        <p id="end-msg">You have landed safely.</p>
+        <button id="next-btn" class="restart-btn" onclick="startNextLevel()">Fly Again</button>
+    </div>
+
+    <!-- Import Three.js -->
+    <script type="module">
+        import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+        
+        // --- GAME STATE & VARIABLES ---
+        let scene, camera, renderer, clock;
+        let plane, propeller;
+        let destGroup; // Track destination island to move it
+        
+        const rings = [];
+        const obstacles = [];
+        let ringsCollected = 0;
+        let ringTotal = 10;
+        
+        let startRunway, endRunway;
+        
+        const gameState = {
+            phase: 'TAKEOFF', 
+            msg: "Increase Throttle to Takeoff!",
+            startTime: 0,
+            touchdownScore: null,
+            score: 0,
+            streak: 0,
+            lastRingTime: 0,
+            bounces: 0,
+            level: 1
+        };
+
+        const physics = {
+            speed: 0,
+            maxSpeed: 3.0,
+            rotationSpeed: 0.025,
+            gravity: 0.008,
+            throttle: 0,
+            altitude: 0,
+            onGround: true 
+        };
+
+        const input = {
+            up: false, down: false, left: false, right: false,
+            throttleUp: false, throttleDown: false,
+            stickX: 0, stickY: 0
+        };
+
+        // DOM Elements
+        const elAlt = document.getElementById('alt-val');
+        const elSpd = document.getElementById('spd-val');
+        const elThrot = document.getElementById('throt-val');
+        const elMission = document.getElementById('mission-text');
+        const elRingCount = document.getElementById('ring-counter');
+        const elFeedback = document.getElementById('landing-feedback');
+        const elStreak = document.getElementById('streak-feedback');
+        const elScore = document.getElementById('score-val');
+        const elLvl = document.getElementById('lvl-val');
+        const elThrottleFill = document.getElementById('throttle-fill');
+        const elStickArea = document.getElementById('stick-area');
+        const elStickKnob = document.getElementById('stick-knob');
+        const elThrottleHandle = document.getElementById('throttle-handle');
+        const elThrottleContainer = document.getElementById('throttle-container');
+        const elGameOver = document.getElementById('game-over');
+        const elEndTitle = document.getElementById('end-title');
+        const elEndMsg = document.getElementById('end-msg');
+        const elEndRating = document.getElementById('end-rating');
+        const elEndScore = document.getElementById('end-score');
+        const elNextBtn = document.getElementById('next-btn');
+
+        // --- INITIALIZATION ---
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.FogExp2(0xe65c00, 0.0015);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 6000); // Increased view dist for lvl 2
+            camera.position.set(0, 5, -15);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            clock = new THREE.Clock();
+
+            // Lights
+            const hemiLight = new THREE.HemisphereLight(0xffaa00, 0x442200, 0.6);
+            scene.add(hemiLight);
+            const dirLight = new THREE.DirectionalLight(0xffeba1, 1);
+            dirLight.position.set(-50, 200, 50);
+            dirLight.castShadow = true;
+            dirLight.shadow.camera.far = 4000;
+            dirLight.shadow.mapSize.set(2048, 2048);
+            scene.add(dirLight);
+
+            createWorld();
+            createPlane();
+            
+            // Initial Level Setup
+            startLevel(1);
+
+            setupControls();
+            window.addEventListener('resize', onWindowResize, false);
+            window.startNextLevel = startNextLevel;
+            window.resetGame = resetGame;
+
+            animate();
+        }
+
+        // --- LEVEL MANAGEMENT ---
+        function startLevel(lvl) {
+            gameState.level = lvl;
+            elLvl.innerText = `LEVEL ${lvl}`;
+            
+            // Cleanup Old Level
+            rings.forEach(r => scene.remove(r));
+            rings.length = 0;
+            obstacles.forEach(o => scene.remove(o));
+            obstacles.length = 0;
+            
+            // Reset Core Physics/State
+            resetGame();
+
+            if (lvl === 1) {
+                ringTotal = 10;
+                moveDestination(2500);
+                createRings(10, 'sine');
+            } else if (lvl === 2) {
+                ringTotal = 15;
+                moveDestination(4500); // Further away
+                createRings(15, 'corkscrew');
+                // Add Blimp Obstacle
+                createBlimp(0, 100, 2200); // Mid-path
+            }
+            
+            elRingCount.innerText = `RINGS: 0/${ringTotal}`;
+        }
+
+        function startNextLevel() {
+            if (elEndTitle.innerText.includes("CRASH")) {
+                startLevel(gameState.level); // Retry
+            } else {
+                if (gameState.level === 1) startLevel(2);
+                else startLevel(1); // Loop back
+            }
+        }
+
+        function moveDestination(zPos) {
+            if (destGroup) scene.remove(destGroup);
+            createIsland(0, zPos, true); // Recreate dest at new Z
+        }
+
+        // --- ASSET GENERATION ---
+        function createPlane() {
+            const planeGroup = new THREE.Group();
+            const matRed = new THREE.MeshStandardMaterial({ color: 0xcc0000, roughness: 0.4 });
+            const matDark = new THREE.MeshStandardMaterial({ color: 0x333333 });
+            const matMetal = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.8 });
+
+            const fuse = new THREE.Mesh(new THREE.ConeGeometry(0.8, 4, 8), matRed);
+            fuse.rotateX(Math.PI/2); fuse.castShadow = true;
+            planeGroup.add(fuse);
+
+            const cockpit = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.6, 1.2), matDark);
+            cockpit.position.set(0, 0.6, 0.5); cockpit.castShadow = true;
+            planeGroup.add(cockpit);
+
+            const wingGeo = new THREE.BoxGeometry(8, 0.1, 1.5);
+            const w1 = new THREE.Mesh(wingGeo, matRed); w1.position.set(0, 1.2, 0.5); w1.castShadow=true;
+            const w2 = new THREE.Mesh(wingGeo, matRed); w2.position.set(0, 0, 0.5); w2.castShadow=true;
+            planeGroup.add(w1); planeGroup.add(w2);
+
+            const tail = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.1, 1), matRed);
+            tail.position.set(0, 0.2, -1.5); planeGroup.add(tail);
+            const rudder = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.5, 1), matRed);
+            rudder.position.set(0, 0.8, -1.5); planeGroup.add(rudder);
+
+            propeller = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 0.1), matMetal);
+            propeller.position.set(0, 0, 2);
+            planeGroup.add(propeller);
+
+            plane = planeGroup;
+            scene.add(plane);
+            plane.position.set(0, 1, 0); 
+        }
+
+        function createBlimp(x, y, z) {
+            const grp = new THREE.Group();
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.3 });
+            
+            // Hull
+            const hull = new THREE.Mesh(new THREE.SphereGeometry(30, 32, 32), skinMat);
+            hull.scale.set(1, 1, 2.5); // Elongate Z
+            grp.add(hull);
+            
+            // Gondola
+            const gondola = new THREE.Mesh(new THREE.BoxGeometry(15, 8, 20), new THREE.MeshStandardMaterial({color: 0x333333}));
+            gondola.position.y = -30;
+            grp.add(gondola);
+            
+            // Fins
+            const finGeo = new THREE.BoxGeometry(2, 20, 20);
+            const finMat = new THREE.MeshStandardMaterial({color: 0xcc0000});
+            const topFin = new THREE.Mesh(finGeo, finMat);
+            topFin.position.set(0, 25, 60);
+            grp.add(topFin);
+            
+            const leftFin = new THREE.Mesh(finGeo, finMat);
+            leftFin.rotation.z = Math.PI/2;
+            leftFin.position.set(-25, 0, 60);
+            grp.add(leftFin);
+            
+            const rightFin = new THREE.Mesh(finGeo, finMat);
+            rightFin.rotation.z = Math.PI/2;
+            rightFin.position.set(25, 0, 60);
+            grp.add(rightFin);
+
+            grp.position.set(x, y, z);
+            
+            // Animation Data
+            grp.userData = { 
+                type: 'blimp', 
+                radius: 40,
+                startX: x,
+                speed: 0.3,
+                dir: 1
+            };
+            
+            scene.add(grp);
+            obstacles.push(grp);
+        }
+
+        function createWorld() {
+            const ocean = new THREE.Mesh(
+                new THREE.PlaneGeometry(10000, 10000), // Larger ocean
+                new THREE.MeshStandardMaterial({ color: 0x1a334d, roughness: 0.2 })
+            );
+            ocean.rotation.x = -Math.PI / 2;
+            ocean.position.y = -50;
+            scene.add(ocean);
+
+            createIsland(0, 0); // Start
+            // Destination created by startLevel()
+
+            const islandGeo = new THREE.ConeGeometry(30, 40, 5);
+            const islandMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, flatShading: true });
+            
+            for(let i=0; i<50; i++) {
+                const mesh = new THREE.Mesh(islandGeo, islandMat);
+                mesh.position.set(
+                    (Math.random()-0.5)*2000,
+                    (Math.random()*150) - 20,
+                    (Math.random()*5000) - 200
+                );
+                mesh.rotation.x = Math.PI;
+                mesh.scale.set(1 + Math.random(), 1 + Math.random(), 1 + Math.random());
+                if(Math.abs(mesh.position.x) > 100) scene.add(mesh);
+            }
+        }
+
+        function createIsland(x, z, isDestination = false) {
+            const grp = new THREE.Group();
+            
+            const base = new THREE.Mesh(
+                new THREE.CylinderGeometry(70, 50, 60, 16),
+                new THREE.MeshStandardMaterial({ color: 0x5c4033, flatShading: true })
+            );
+            base.position.y = -30;
+            grp.add(base);
+
+            const run = new THREE.Mesh(
+                new THREE.BoxGeometry(25, 0.5, 200),
+                new THREE.MeshStandardMaterial({ color: 0x222222 })
+            );
+            run.position.y = 0;
+            run.receiveShadow = true;
+            grp.add(run);
+
+            if (isDestination) {
+                // RUNWAY ZONES
+                const perfectGeo = new THREE.BoxGeometry(25, 0.6, 50);
+                const perfectMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, opacity: 0.5, transparent: true });
+                const perfect = new THREE.Mesh(perfectGeo, perfectMat);
+                perfect.position.set(0, 0, 0);
+                grp.add(perfect);
+
+                const goodGeo = new THREE.BoxGeometry(25, 0.6, 40);
+                const goodMat = new THREE.MeshBasicMaterial({ color: 0xffff00, opacity: 0.5, transparent: true });
+                const good1 = new THREE.Mesh(goodGeo, goodMat);
+                good1.position.set(0, 0, -45);
+                grp.add(good1);
+                const good2 = new THREE.Mesh(goodGeo, goodMat);
+                good2.position.set(0, 0, 45);
+                grp.add(good2);
+
+                const poorGeo = new THREE.BoxGeometry(25, 0.6, 35);
+                const poorMat = new THREE.MeshBasicMaterial({ color: 0xff0000, opacity: 0.5, transparent: true });
+                const poor1 = new THREE.Mesh(poorGeo, poorMat);
+                poor1.position.set(0, 0, -82.5);
+                grp.add(poor1);
+                const poor2 = new THREE.Mesh(poorGeo, poorMat);
+                poor2.position.set(0, 0, 82.5);
+                grp.add(poor2);
+
+                const lightGeo = new THREE.SphereGeometry(1, 8, 8);
+                const lightMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                for(let i=-1; i<=1; i+=2) {
+                    for(let j=-90; j<=90; j+=20) {
+                        const l = new THREE.Mesh(lightGeo, lightMat);
+                        l.position.set(i*12, 0.5, j);
+                        grp.add(l);
+                    }
+                }
+                endRunway = { x: x, z: z, width: 25, length: 200 };
+                destGroup = grp; // Keep ref
+            } else {
+                startRunway = { x: x, z: z };
+            }
+
+            grp.position.set(x, 0, z);
+            scene.add(grp);
+        }
+
+        function createRings(count, pattern) {
+            const ringGeo = new THREE.TorusGeometry(15, 1.5, 8, 24);
+            const ringMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8, emissive: 0x332200 });
+
+            for (let i = 0; i < count; i++) {
+                const ring = new THREE.Mesh(ringGeo, ringMat.clone());
+                
+                let xPos = 0, yPos = 80, zPos = 0;
+
+                if (pattern === 'sine') {
+                    // Level 1: Simple Sine
+                    zPos = 300 + (i * 200);
+                    xPos = Math.sin(i * 0.5) * 60;
+                    yPos = 80 + Math.sin(i * 0.3) * 40;
+                } else if (pattern === 'corkscrew') {
+                    // Level 2: Corkscrew
+                    zPos = 400 + (i * 250);
+                    xPos = Math.cos(i * 0.6) * 80;
+                    yPos = 120 + Math.sin(i * 0.6) * 60;
+                }
+
+                ring.position.set(xPos, yPos, zPos);
+                ring.userData = { id: i, collected: false };
+                
+                scene.add(ring);
+                rings.push(ring);
+            }
+        }
+
+        // --- CONTROLS ---
+        function setupControls() {
+            // Keyboard
+            const onKey = (e, val) => {
+                switch(e.key) {
+                    case 'ArrowUp': input.up = val; break;
+                    case 'ArrowDown': input.down = val; break;
+                    case 'ArrowLeft': input.left = val; break;
+                    case 'ArrowRight': input.right = val; break;
+                    case 'w': case 'W': input.throttleUp = val; break;
+                    case 's': case 'S': input.throttleDown = val; break;
+                }
+            };
+            document.addEventListener('keydown', e => onKey(e, true));
+            document.addEventListener('keyup', e => onKey(e, false));
+
+            // Stick
+            const maxStick = 60;
+            const moveStick = (x, y) => {
+                const rect = elStickArea.getBoundingClientRect();
+                const cx = rect.left + rect.width/2;
+                const cy = rect.top + rect.height/2;
+                const dx = x - cx;
+                const dy = y - cy;
+                const dist = Math.min(Math.sqrt(dx*dx+dy*dy), maxStick);
+                const ang = Math.atan2(dy, dx);
+                const kx = Math.cos(ang) * dist;
+                const ky = Math.sin(ang) * dist;
+                
+                elStickKnob.style.transform = `translate(calc(-50% + ${kx}px), calc(-50% + ${ky}px))`;
+                input.stickX = kx / maxStick;
+                input.stickY = ky / maxStick;
+            };
+
+            elStickArea.addEventListener('pointerdown', e => {
+                elStickArea.setPointerCapture(e.pointerId);
+                elStickKnob.classList.add('active');
+                moveStick(e.clientX, e.clientY);
+            });
+            elStickArea.addEventListener('pointermove', e => {
+                if(elStickArea.hasPointerCapture(e.pointerId)) moveStick(e.clientX, e.clientY);
+            });
+            elStickArea.addEventListener('pointerup', e => {
+                elStickArea.releasePointerCapture(e.pointerId);
+                elStickKnob.classList.remove('active');
+                elStickKnob.style.transform = `translate(-50%, -50%)`;
+                input.stickX = 0; input.stickY = 0;
+            });
+
+            // Throttle
+            const moveThrot = (y) => {
+                const rect = elThrottleContainer.getBoundingClientRect();
+                let pct = 1 - (y - rect.top)/rect.height;
+                physics.throttle = Math.max(0, Math.min(1, pct));
+                updateThrottleUI();
+            };
+            elThrottleContainer.addEventListener('pointerdown', e => {
+                elThrottleContainer.setPointerCapture(e.pointerId);
+                moveThrot(e.clientY);
+            });
+            elThrottleContainer.addEventListener('pointermove', e => {
+                if(elThrottleContainer.hasPointerCapture(e.pointerId)) moveThrot(e.clientY);
+            });
+            elThrottleContainer.addEventListener('pointerup', e => elThrottleContainer.releasePointerCapture(e.pointerId));
+        }
+
+        function updateThrottleUI() {
+            elThrottleFill.style.height = (physics.throttle * 100) + '%';
+            elThrottleHandle.style.bottom = (physics.throttle * 100) + '%';
+            elThrot.textContent = Math.round(physics.throttle * 100);
+        }
+
+        // --- GAME LOGIC ---
+        function applyRingMagnet() {
+            if (gameState.phase !== 'FLYING') return;
+            
+            let closestRing = null;
+            let minDist = 80; 
+            
+            rings.forEach(ring => {
+                if (!ring.userData.collected) {
+                    const dist = plane.position.distanceTo(ring.position);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closestRing = ring;
+                    }
+                }
+            });
+
+            if (closestRing) {
+                const strength = 1 - (minDist / 80); 
+                const pullFactor = 0.03 * strength * physics.speed;
+                plane.position.lerp(closestRing.position, pullFactor);
+            }
+        }
+
+        function handleBounce() {
+            gameState.bounces++;
+            plane.position.y = 5;
+            plane.rotation.x = -0.3; 
+            plane.rotation.z = 0;
+            physics.speed *= 0.6;
+            elFeedback.innerText = "HULL CRITICAL!";
+            elFeedback.style.color = "orange";
+            elFeedback.style.opacity = 1;
+            setTimeout(() => { elFeedback.style.opacity = 0; }, 1500);
+        }
+
+        function updateObstacles() {
+            obstacles.forEach(obs => {
+                if (obs.userData.type === 'blimp') {
+                    // Simple patrol logic
+                    obs.position.x += obs.userData.speed * obs.userData.dir;
+                    if (obs.position.x > 100 || obs.position.x < -100) {
+                        obs.userData.dir *= -1;
+                    }
+                    // Rotate props? (visual only, not implemented)
+                }
+            });
+        }
+
+        function updatePhysics() {
+            if (gameState.phase === 'CRASH' || gameState.phase === 'COMPLETE') return;
+
+            // Update Obstacles
+            updateObstacles();
+
+            // Throttle
+            if(input.throttleUp && physics.throttle < 1) physics.throttle += 0.01;
+            if(input.throttleDown && physics.throttle > 0) physics.throttle -= 0.01;
+            physics.throttle = Math.max(0, Math.min(1, physics.throttle));
+            if(input.throttleUp || input.throttleDown) updateThrottleUI();
+
+            // Speed & Drag
+            let drag = 0.01;
+            if (physics.onGround) drag = 0.04;
+            
+            const targetSpeed = physics.throttle * physics.maxSpeed;
+            physics.speed += (targetSpeed - physics.speed) * drag;
+            
+            // Movement
+            plane.translateZ(physics.speed);
+            propeller.rotation.z += physics.speed + 0.5;
+
+            // Apply Ring Magnet Assist
+            applyRingMagnet();
+
+            // Authority
+            const authority = Math.max(0.1, Math.min(1, physics.speed / 1.0));
+
+            // Control Inputs
+            let pitchInput = input.stickY;
+            if (input.up) pitchInput = -1;
+            if (input.down) pitchInput = 1;
+
+            let rollInput = 0;
+            if (input.left) rollInput = -1;
+            if (input.right) rollInput = 1;
+            if (input.stickX !== 0) rollInput = input.stickX;
+
+            // Physics Rotation
+            plane.rotateX(-pitchInput * physics.rotationSpeed * 1.0 * authority);
+            plane.rotateZ(rollInput * physics.rotationSpeed * 1.5 * authority);
+            plane.rotateY(-rollInput * physics.rotationSpeed * 0.5 * authority);
+
+            // Auto-Leveling
+            if (Math.abs(rollInput) < 0.1 && Math.abs(pitchInput) < 0.1) {
+                const forward = new THREE.Vector3(0,0,1).applyQuaternion(plane.quaternion);
+                plane.rotateX(forward.y * 0.02); 
+                const right = new THREE.Vector3(1,0,0).applyQuaternion(plane.quaternion);
+                plane.rotateZ(-right.y * 0.04); 
+            }
+
+            // Bounds
+            if(plane.position.y < -40) triggerCrash();
+
+            // Collisions
+            checkCollisions();
+
+            // Camera
+            const offset = new THREE.Vector3(0, 6, -18).applyMatrix4(plane.matrixWorld);
+            camera.position.lerp(offset, 0.1); 
+            camera.lookAt(plane.position);
+
+            // HUD
+            elAlt.innerText = Math.round(plane.position.y);
+            elSpd.innerText = Math.round(physics.speed * 100);
+        }
+
+        function checkCollisions() {
+            // 1. Obstacles (Blimps)
+            obstacles.forEach(obs => {
+                const dist = plane.position.distanceTo(obs.position);
+                if (dist < obs.userData.radius) {
+                    if (gameState.bounces < 1) {
+                        handleBounce();
+                        // Push away from blimp
+                        const pushDir = plane.position.clone().sub(obs.position).normalize();
+                        plane.position.add(pushDir.multiplyScalar(10));
+                    } else {
+                        triggerCrash("Collision with Zeppelin!");
+                    }
+                }
+            });
+
+            // 2. Ground / Runway
+            const rwWidth = 25; 
+            const rwLength = 120; 
+
+            const onStartRunway = (
+                Math.abs(plane.position.x) < rwWidth &&
+                Math.abs(plane.position.z) < rwLength
+            );
+            const onEndRunway = (
+                Math.abs(plane.position.x - endRunway.x) < rwWidth &&
+                Math.abs(plane.position.z - endRunway.z) < rwLength
+            );
+
+            if ((onStartRunway || onEndRunway) && plane.position.y < 1.5) {
+                
+                // Landing Score
+                if (!physics.onGround && onEndRunway && gameState.phase === 'LANDING') {
+                     const dz = plane.position.z - endRunway.z;
+                     let rating = "BAD";
+                     let color = "#fff";
+                     
+                     if (Math.abs(dz) < 25) {
+                         rating = "PERFECT!";
+                         color = "#00ff00";
+                         gameState.score += 1000;
+                     } else if (Math.abs(dz) < 65) {
+                         rating = "GOOD";
+                         color = "#ffff00";
+                         gameState.score += 500;
+                     } else if (dz < -65) {
+                         rating = "TOO EARLY";
+                         color = "#ff3300";
+                         gameState.score += 100;
+                     } else {
+                         rating = "TOO LATE";
+                         color = "#ff3300";
+                         gameState.score += 100;
+                     }
+                     
+                     updateScoreUI();
+                     
+                     if (!gameState.touchdownScore) {
+                         gameState.touchdownScore = rating;
+                         elFeedback.innerText = rating;
+                         elFeedback.style.color = color;
+                         elFeedback.style.opacity = 1;
+                         setTimeout(() => { elFeedback.style.opacity = 0; }, 3000);
+                     }
+                }
+
+                // Check Hard Impact
+                const crashPitch = plane.rotation.x > 0.5;
+                const crashRoll = Math.abs(plane.rotation.z) > 0.6;
+
+                if (crashPitch || crashRoll) {
+                    if (gameState.bounces < 1) {
+                        handleBounce();
+                        physics.onGround = false;
+                        return;
+                    } else {
+                        triggerCrash("Hard Impact on Runway!");
+                        return;
+                    }
+                }
+
+                // Successful Ground Contact
+                physics.onGround = true;
+                plane.position.y = 1; 
+
+                const euler = new THREE.Euler().setFromQuaternion(plane.quaternion);
+                let pitch = euler.x;
+                if (pitch > 0.05) pitch = 0.05; 
+                plane.rotation.set(pitch, euler.y, 0);
+
+                if (onEndRunway && gameState.phase === 'LANDING' && physics.speed < 0.2) {
+                    triggerWin();
+                }
+            } else if (plane.position.y < 1) {
+                // Water Impact
+                if (gameState.bounces < 1) {
+                    handleBounce();
+                } else {
+                    triggerCrash("Water Impact!");
+                }
+            } else {
+                physics.onGround = false;
+            }
+        }
+
+        function checkMissionLogic() {
+            if (gameState.phase === 'CRASH' || gameState.phase === 'COMPLETE') return;
+
+            if (gameState.phase === 'TAKEOFF') {
+                if (plane.position.y > 20) {
+                    gameState.phase = 'FLYING';
+                    gameState.startTime = clock.getElapsedTime();
+                    elMission.innerText = "Fly through the Golden Rings";
+                    elMission.style.borderColor = "#00ff00";
+                }
+            }
+
+            if (gameState.phase === 'FLYING') {
+                rings.forEach(ring => {
+                    if (!ring.userData.collected) {
+                        const dist = plane.position.distanceTo(ring.position);
+                        if (dist < 20) { 
+                            collectRing(ring);
+                        }
+                    }
+                });
+
+                if (ringsCollected >= ringTotal) {
+                    gameState.phase = 'LANDING';
+                    elMission.innerText = "COURSE COMPLETE! LAND AT DESTINATION";
+                    elMission.style.borderColor = "#ff3300";
+                    elMission.style.color = "#ffcc00";
+                }
+            }
+
+            if (gameState.phase === 'LANDING') {
+                const distToDest = plane.position.distanceTo(new THREE.Vector3(endRunway.x, 0, endRunway.z));
+                if (distToDest < 400) {
+                    elMission.innerText = "Cut Throttle & Glide to Runway";
+                }
+            }
+        }
+
+        function collectRing(ring) {
+            ring.userData.collected = true;
+            ring.material.color.setHex(0x00ff00);
+            ring.material.emissive.setHex(0x003300);
+            ringsCollected++;
+            elRingCount.innerText = `RINGS: ${ringsCollected}/${ringTotal}`;
+            
+            // Streak Logic
+            const now = clock.getElapsedTime();
+            if (now - gameState.lastRingTime < 4.0) { 
+                gameState.streak++;
+            } else {
+                gameState.streak = 1;
+            }
+            gameState.lastRingTime = now;
+            
+            const points = 100 * gameState.streak;
+            gameState.score += points;
+            updateScoreUI();
+            
+            ring.scale.set(1.2, 1.2, 1.2);
+            setTimeout(() => ring.scale.set(1,1,1), 200);
+            
+            if (gameState.streak > 1) {
+                elStreak.innerText = `${gameState.streak}x COMBO!`;
+                elStreak.style.opacity = 1;
+                elStreak.style.transform = "scale(1.2)";
+                setTimeout(() => {
+                    elStreak.style.opacity = 0;
+                    elStreak.style.transform = "scale(0.5)";
+                }, 1000);
+            }
+        }
+        
+        function updateScoreUI() {
+            elScore.innerText = `SCORE: ${gameState.score}`;
+        }
+
+        function triggerCrash(reason = "CRITICAL FAILURE") {
+            gameState.phase = 'CRASH';
+            elGameOver.style.display = 'block';
+            elEndTitle.innerText = "CRASHED";
+            elEndTitle.style.color = "red";
+            elEndMsg.innerText = reason;
+            elEndRating.innerText = "";
+            elEndScore.innerText = "FINAL SCORE: " + gameState.score;
+            elNextBtn.innerText = "Retry Level";
+        }
+
+        function triggerWin() {
+            gameState.phase = 'COMPLETE';
+            
+            const duration = clock.getElapsedTime() - gameState.startTime;
+            const parTime = 60; 
+            const timeBonus = Math.max(0, Math.floor((parTime - duration) * 50));
+            gameState.score += timeBonus;
+            
+            elGameOver.style.display = 'block';
+            elEndTitle.innerText = "MISSION ACCOMPLISHED";
+            elEndTitle.style.color = "#00ff00";
+            elEndMsg.innerText = `Time: ${duration.toFixed(1)}s (Bonus: +${timeBonus})`;
+            elEndScore.innerText = "FINAL SCORE: " + gameState.score;
+            
+            if (gameState.level === 1) elNextBtn.innerText = "START LEVEL 2";
+            else elNextBtn.innerText = "BACK TO ACADEMY";
+            
+            if (gameState.touchdownScore) {
+                elEndRating.innerText = "RATING: " + gameState.touchdownScore;
+                if (gameState.touchdownScore.includes("PERFECT")) elEndRating.style.color = "#00ff00";
+                else if (gameState.touchdownScore.includes("GOOD")) elEndRating.style.color = "#ffff00";
+                else elEndRating.style.color = "#ff3300";
+            }
+        }
+        
+        function resetGame() {
+            physics.speed = 0;
+            physics.throttle = 0;
+            physics.altitude = 0;
+            physics.onGround = true; 
+            
+            if(plane) {
+                plane.position.set(0, 1, 0);
+                plane.rotation.set(0, 0, 0);
+            }
+            
+            gameState.phase = 'TAKEOFF';
+            gameState.touchdownScore = null;
+            gameState.streak = 0;
+            gameState.lastRingTime = 0;
+            gameState.bounces = 0; 
+            ringsCollected = 0;
+            
+            // Rings Reset handled by level load
+            
+            elMission.innerText = "Increase Throttle to Takeoff!";
+            elMission.style.borderColor = "#ffcc00";
+            elMission.style.color = "white";
+            elGameOver.style.display = 'none';
+            elFeedback.style.opacity = 0;
+            updateScoreUI();
+            updateThrottleUI();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(plane) {
+                updatePhysics();
+                checkMissionLogic();
+            }
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
+
+
